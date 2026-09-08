@@ -1,0 +1,3 @@
+plugins:
+  datasources:
+    '@evidence-dev/duckdb': {}

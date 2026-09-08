@@ -1,0 +1,58 @@
+name: 'nyc_311'
+version: '1.0.0'
+config-version: 2
+
+profile: 'nyc_311'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+analysis-paths: ["analyses"]
+docs-paths: ["docs"]
+seed-paths: ["seeds"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  # ── Pipeline config vars (override in profiles or via --vars) ───────────
+  silver_db_path: "{{ env_var('SILVER_DB_PATH', '../data/silver/silver.duckdb') }}"
+  gold_db_path:   "{{ env_var('GOLD_DB_PATH',   '../data/gold/gold.duckdb') }}"
+
+  # ── NYC bounding box for geo validation ─────────────────────────────────
+  nyc_lat_min: 40.4
+  nyc_lat_max: 40.95
+  nyc_lon_min: -74.3
+  nyc_lon_max: -73.7
+
+  # ── Incremental lookback window (reprocess last N days on each run) ──────
+  incremental_lookback_days: 3
+
+models:
+  nyc_311:
+    # ── Bronze staging: lightweight views over Silver data ─────────────────
+    bronze:
+      +materialized: view
+      +schema: bronze_staging
+      +tags: ['bronze']
+
+    # ── Silver intermediates: cleaned, validated ────────────────────────────
+    silver:
+      +materialized: view
+      +schema: silver
+      +tags: ['silver']
+
+    # ── Gold layer: facts, dims, marts ─────────────────────────────────────
+    gold:
+      +materialized: table
+      +schema: gold
+      +tags: ['gold']
+
+      # Marts use incremental where possible
+      marts:
+        +materialized: incremental
+        +incremental_strategy: delete+insert
+        +unique_key: ['surrogate_key']

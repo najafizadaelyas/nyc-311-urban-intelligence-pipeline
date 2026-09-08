@@ -1,0 +1,140 @@
+version: 2
+
+models:
+  # ── Fact Table ─────────────────────────────────────────────────────────────
+  - name: fact_311_requests
+    description: >
+      Central fact table in the Gold star schema. One row per NYC 311 service
+      request. References dimension tables via surrogate keys. Incremental model.
+    columns:
+      - name: fact_key
+        description: Surrogate key for this fact row.
+        tests:
+          - not_null
+          - unique
+
+      - name: unique_key
+        description: Original NYC Open Data unique key (natural key).
+        tests:
+          - not_null
+          - unique
+
+      - name: created_date
+        description: UTC timestamp of request creation.
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: "'2020-01-01'"
+              max_value: "CURRENT_TIMESTAMP"
+
+      - name: response_hours
+        description: Hours from creation to closure. NULL for open tickets.
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              row_condition: "response_hours IS NOT NULL"
+              config:
+                severity: error
+
+      - name: borough
+        description: NYC borough (or NULL for unspecified locations).
+        tests:
+          - accepted_values:
+              values: ['MANHATTAN', 'BRONX', 'BROOKLYN', 'QUEENS', 'STATEN ISLAND']
+              config:
+                severity: warn
+
+      - name: status
+        description: Normalized request status.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['OPEN', 'CLOSED', 'ASSIGNED', 'PENDING', 'IN_PROGRESS', 'DRAFT', 'EMAIL_SENT', 'MORE_INFO_REQUESTED']
+
+  # ── Dimensions ─────────────────────────────────────────────────────────────
+  - name: dim_complaint_type
+    description: Complaint type dimension with category groupings.
+    columns:
+      - name: complaint_type_key
+        tests: [not_null, unique]
+      - name: complaint_type
+        tests: [not_null, unique]
+      - name: complaint_category
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Noise', 'Housing - Heat & Water', 'Sanitation - Pests',
+                       'Traffic & Parking', 'Infrastructure - Streets',
+                       'Infrastructure - Water/Sewer', 'Parks & Trees',
+                       'Sanitation - Cleanliness', 'Social Services',
+                       'Housing - Construction', 'Environment - Air Quality',
+                       'Animals', 'Other']
+
+  - name: dim_agency
+    description: Agency dimension with performance metrics.
+    columns:
+      - name: agency_key
+        tests: [not_null, unique]
+      - name: agency
+        tests: [not_null, unique]
+      - name: closure_rate_pct
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 100
+
+  - name: dim_location
+    description: Geographic dimension by borough and community board.
+    columns:
+      - name: location_key
+        tests: [not_null, unique]
+      - name: borough
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['MANHATTAN', 'BRONX', 'BROOKLYN', 'QUEENS', 'STATEN ISLAND']
+
+  # ── Mart Tables ────────────────────────────────────────────────────────────
+  - name: mart_response_time_by_borough
+    description: >
+      Pre-aggregated response time metrics by borough, complaint category, year, and month.
+    columns:
+      - name: surrogate_key
+        tests: [not_null, unique]
+      - name: avg_response_hours
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              row_condition: "avg_response_hours IS NOT NULL"
+      - name: sla_breach_rate_pct
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 100
+
+  - name: mart_complaint_trends
+    description: Monthly complaint volume trends with MoM and YoY changes.
+    columns:
+      - name: surrogate_key
+        tests: [not_null, unique]
+      - name: total_requests
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+
+  - name: mart_agency_performance
+    description: Monthly agency performance scorecard.
+    columns:
+      - name: surrogate_key
+        tests: [not_null, unique]
+      - name: closure_rate_pct
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 100
+
+  - name: mart_seasonal_patterns
+    description: Time-of-day, day-of-week, and seasonal complaint patterns.
+    columns:
+      - name: surrogate_key
+        tests: [not_null, unique]

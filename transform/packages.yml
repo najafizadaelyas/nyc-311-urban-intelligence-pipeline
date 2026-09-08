@@ -1,0 +1,6 @@
+packages:
+  - package: dbt-labs/dbt_utils
+    version: 1.3.0          # surrogate_key, generate_series, date_spine, etc.
+
+  - package: calogica/dbt_expectations
+    version: 0.10.4         # Great Expectations-style data tests in dbt

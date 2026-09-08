@@ -1,0 +1,61 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "gold_fact_311_requests",
+  "meta": {
+    "great_expectations_version": "0.18.19",
+    "description": "Quality contract for the Gold DuckDB layer fact table. These expectations validate that the dbt transformation produced correct, complete, business-ready data. Any failure here should block dashboard refresh."
+  },
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": { "min_value": 1000, "max_value": null },
+      "meta": { "notes": "Gold fact must have substantial data — if < 1000 rows, something failed." }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "fact_key", "mostly": 1.0 }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": { "column": "fact_key", "mostly": 1.0 }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "unique_key", "mostly": 1.0 }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": { "column": "unique_key", "mostly": 1.0 }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "response_hours",
+        "min_value": 0,
+        "max_value": 175200,
+        "mostly": 1.0
+      },
+      "meta": { "notes": "175200 hours = 20 years — absolute maximum realistic response time." }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "response_time_bucket",
+        "value_set": ["SAME_DAY", "WITHIN_3_DAYS", "WITHIN_1_WEEK", "WITHIN_1_MONTH", "OVER_1_MONTH"],
+        "mostly": 1.0
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "complaint_type_key", "mostly": 0.99 }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "agency_key", "mostly": 0.99 }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "_gold_refreshed_at", "mostly": 1.0 }
+    }
+  ]
+}

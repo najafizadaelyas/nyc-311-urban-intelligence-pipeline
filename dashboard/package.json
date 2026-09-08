@@ -1,0 +1,17 @@
+{
+  "name": "nyc-311-dashboard",
+  "version": "1.0.0",
+  "description": "NYC 311 Urban Intelligence Pipeline — Evidence.dev BI-as-code dashboard",
+  "scripts": {
+    "dev":   "evidence dev",
+    "build": "evidence build",
+    "preview": "evidence preview"
+  },
+  "dependencies": {
+    "@evidence-dev/evidence": "^35.0.0",
+    "@evidence-dev/core-components": "^4.0.0"
+  },
+  "devDependencies": {
+    "@evidence-dev/plugin-connector": "^2.0.0"
+  }
+}

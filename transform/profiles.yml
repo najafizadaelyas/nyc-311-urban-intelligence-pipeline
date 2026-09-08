@@ -1,0 +1,41 @@
+# dbt connection profiles
+# This file tells dbt which database to connect to and how.
+#
+# For this project we use dbt-duckdb, which runs entirely locally.
+# No cloud credentials required. No server to start.
+#
+# The Silver DuckDB is attached as a read-only source.
+# The Gold DuckDB is the write target.
+#
+# Override the paths via environment variables:
+#   SILVER_DB_PATH  — path to silver.duckdb
+#   GOLD_DB_PATH    — path to gold.duckdb
+
+nyc_311:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('GOLD_DB_PATH', '../data/gold/gold.duckdb') }}"
+      threads: 4
+      # Attach Silver as a read-only source database
+      attach:
+        - path: "{{ env_var('SILVER_DB_PATH', '../data/silver/silver.duckdb') }}"
+          alias: silver_source
+          read_only: true
+      # DuckDB settings for performance
+      settings:
+        threads: 4
+        memory_limit: '4GB'
+
+    prod:
+      type: duckdb
+      path: "{{ env_var('GOLD_DB_PATH', '../data/gold/gold.duckdb') }}"
+      threads: 8
+      attach:
+        - path: "{{ env_var('SILVER_DB_PATH', '../data/silver/silver.duckdb') }}"
+          alias: silver_source
+          read_only: true
+      settings:
+        threads: 8
+        memory_limit: '8GB'

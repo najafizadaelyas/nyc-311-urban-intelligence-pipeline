@@ -1,0 +1,8 @@
+# Evidence.dev DuckDB source configuration
+# Points to the Gold DuckDB file produced by the dbt transformation layer.
+# All dashboard pages query this single file — no network calls, no servers.
+
+name: nyc311
+type: duckdb
+options:
+  filename: '../../data/gold/gold.duckdb'

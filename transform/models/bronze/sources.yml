@@ -1,0 +1,119 @@
+version: 2
+
+sources:
+  - name: silver_source
+    description: >
+      Silver DuckDB layer — cleaned, deduplicated, and enriched 311 service
+      request data produced by the Polars cleaning pipeline. Attached to the
+      Gold DuckDB as a read-only source.
+    database: silver_source
+    schema: silver
+    tables:
+      - name: service_requests
+        description: >
+          Cleaned NYC 311 service requests. One row per unique 311 request.
+          Timestamp columns are in UTC. Derived columns (response_hours,
+          created_year, is_weekend, etc.) are added by the Silver cleaner.
+        columns:
+          - name: unique_key
+            description: NYC Open Data unique identifier for this service request.
+            tests:
+              - not_null
+              - unique
+
+          - name: created_date
+            description: UTC timestamp when the 311 request was submitted.
+            tests:
+              - not_null
+
+          - name: closed_date
+            description: UTC timestamp when the request was closed. NULL for open tickets.
+
+          - name: agency
+            description: Code of the city agency responsible for resolving this request.
+
+          - name: agency_name
+            description: Full name of the responsible city agency.
+
+          - name: complaint_type
+            description: >
+              Normalized top-level complaint category. Alias variants have been
+              collapsed to canonical values by the Silver cleaner.
+
+          - name: descriptor
+            description: Specific detail about the complaint, within the complaint_type.
+
+          - name: borough
+            description: >
+              NYC borough name (MANHATTAN, BRONX, BROOKLYN, QUEENS, STATEN ISLAND).
+              NULL if originally "Unspecified" or invalid.
+            tests:
+              - accepted_values:
+                  values: ['MANHATTAN', 'BRONX', 'BROOKLYN', 'QUEENS', 'STATEN ISLAND']
+                  config:
+                    severity: warn     # warn not error — some nulls are expected
+
+          - name: status
+            description: >
+              Current request status normalized to uppercase controlled vocabulary:
+              OPEN, CLOSED, ASSIGNED, PENDING, IN_PROGRESS, DRAFT.
+
+          - name: latitude
+            description: >
+              Latitude of the complaint location (decimal degrees, WGS84).
+              NULL if outside NYC bounding box or missing.
+
+          - name: longitude
+            description: >
+              Longitude of the complaint location (decimal degrees, WGS84).
+              NULL if outside NYC bounding box or missing.
+
+          - name: has_valid_geo
+            description: True if latitude/longitude are within the NYC bounding box.
+
+          - name: response_hours
+            description: >
+              Hours from created_date to closed_date. NULL for open tickets.
+              Negative values have been nulled out (closed_date < created_date).
+
+          - name: created_year
+            description: Year component of created_date.
+
+          - name: created_month
+            description: Month component of created_date (1–12).
+
+          - name: created_day
+            description: Day-of-month component of created_date (1–31).
+
+          - name: created_hour
+            description: Hour of day (0–23) when the request was created.
+
+          - name: created_dow
+            description: Day of week (0=Monday, 6=Sunday).
+
+          - name: is_weekend
+            description: True if the request was created on a Saturday or Sunday.
+
+          - name: is_after_hours
+            description: True if created outside 8am–6pm local time.
+
+          - name: is_open_ticket
+            description: True if closed_date is null (ticket not yet resolved).
+
+          - name: has_unknown_borough
+            description: True if borough is null (originally "Unspecified").
+
+          - name: community_board
+            description: Community board number (format "NN BOROUGH-NAME").
+
+          - name: council_district
+            description: NYC City Council district number.
+
+          - name: police_precinct
+            description: NYPD precinct number.
+
+          - name: open_data_channel_type
+            description: How the request was submitted (PHONE, ONLINE, MOBILE, etc.).
+
+          - name: _silver_cleaned_at
+            description: UTC timestamp when this row was processed by the Silver cleaner.

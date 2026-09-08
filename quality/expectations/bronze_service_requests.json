@@ -1,0 +1,116 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "bronze_service_requests",
+  "meta": {
+    "great_expectations_version": "0.18.19",
+    "description": "Quality contract for the Bronze DuckDB layer. These are minimal raw data checks — we don't clean anything here, just verify the data arrived correctly from the Socrata API."
+  },
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 1,
+        "max_value": null
+      },
+      "meta": {
+        "notes": "Bronze must not be empty after ingestion."
+      }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "unique_key" }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "created_date" }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "complaint_type" }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "agency" }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "borough" }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "status" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "unique_key",
+        "mostly": 1.0
+      },
+      "meta": {
+        "notes": "unique_key must never be null — it is the primary identifier."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "unique_key",
+        "mostly": 0.99
+      },
+      "meta": {
+        "notes": "Bronze allows a small % of duplicates (re-ingestion). Silver deduplicates."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "created_date",
+        "mostly": 0.99
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_strftime_format",
+      "kwargs": {
+        "column": "created_date",
+        "strftime_format": "%Y-%m-%dT%H:%M:%S",
+        "mostly": 0.95
+      },
+      "meta": {
+        "notes": "Allow 5% format variance — Socrata timestamps occasionally have milliseconds or timezone suffixes."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "complaint_type",
+        "mostly": 0.99
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "agency",
+        "mostly": 0.99
+      }
+    },
+    {
+      "expectation_type": "expect_column_value_lengths_to_be_between",
+      "kwargs": {
+        "column": "unique_key",
+        "min_value": 1,
+        "max_value": 50,
+        "mostly": 1.0
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "borough",
+        "value_set": ["Manhattan", "Bronx", "Brooklyn", "Queens", "Staten Island", "Unspecified"],
+        "mostly": 0.95
+      },
+      "meta": {
+        "notes": "5% tolerance for missing or new borough values from Socrata."
+      }
+    }
+  ]
+}
