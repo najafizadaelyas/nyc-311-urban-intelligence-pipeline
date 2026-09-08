@@ -43,7 +43,7 @@ log = structlog.get_logger(__name__)
 # ─── Paths ────────────────────────────────────────────────────────────────────
 
 PROJECT_ROOT = Path(__file__).parent.parent
-BRONZE_DB = PROJECT_ROOT / "data" / "bronze" / "bronze.duckdb"
+BRONZE_DB = PROJECT_ROOT / "data" / "bronze" / "nyc_311.duckdb"
 SILVER_DB = PROJECT_ROOT / "data" / "silver" / "silver.duckdb"
 
 # ─── NYC Bounding Box ─────────────────────────────────────────────────────────

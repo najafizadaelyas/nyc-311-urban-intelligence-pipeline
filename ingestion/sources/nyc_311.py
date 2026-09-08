@@ -19,6 +19,9 @@ import os
 from datetime import datetime, timezone
 from typing import Iterator
 
+# Default start date for initial full load
+_INITIAL_START_DATE = datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+
 import dlt
 import requests
 from dlt.sources import DltResource
@@ -129,9 +132,9 @@ def nyc_311_requests(
     max_rows: int | None,
     start_date: str | None,
     # dlt incremental: only fetch records newer than the last pipeline run
-    created_at: dlt.sources.incremental[str] = dlt.sources.incremental(
+    created_at: dlt.sources.incremental[datetime] = dlt.sources.incremental(
         "created_date",
-        initial_value="2020-01-01T00:00:00.000",
+        initial_value=_INITIAL_START_DATE,
         lag=3600,   # 1-hour lag to handle late-arriving records
     ),
 ) -> Iterator[dict]:
@@ -148,7 +151,13 @@ def nyc_311_requests(
 
     # Build the $where clause for incremental load
     where_clauses = []
-    effective_start = created_at.last_value or start_date or "2020-01-01T00:00:00.000"
+    _last: datetime = created_at.last_value or (
+        datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+        if start_date
+        else _INITIAL_START_DATE
+    )
+    # Socrata expects ISO format without timezone suffix
+    effective_start = _last.strftime("%Y-%m-%dT%H:%M:%S.000")
     where_clauses.append(f"created_date >= '{effective_start}'")
 
     # Select only the fields we need (reduces payload size significantly)
@@ -216,6 +225,15 @@ def _coerce_types(row: dict) -> dict:
     dlt will infer types from the first batch and enforce them for subsequent
     batches. We standardize a few fields here to prevent type conflicts.
     """
+    # Socrata returns timestamps as strings — parse to datetime so dlt's incremental
+    # cursor can compare datetime > datetime (required when lag= is set)
+    for dt_field in ("created_date", "closed_date", "due_date", "resolution_action_updated_date"):
+        if row.get(dt_field) is not None:
+            try:
+                row[dt_field] = datetime.fromisoformat(row[dt_field]).replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                row[dt_field] = None
+
     # Socrata returns numbers as strings — coerce the ones we know
     for int_field in ("council_district", "police_precinct"):
         if row.get(int_field) is not None:

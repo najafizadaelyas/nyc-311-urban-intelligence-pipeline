@@ -26,6 +26,7 @@ Design decisions:
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
@@ -38,20 +39,28 @@ from ingestion.sources.nyc_311 import nyc_311_source
 
 # ─── Logging setup ────────────────────────────────────────────────────────────
 
+logging.basicConfig(
+    format="%(message)s",
+    level=logging.INFO,
+)
+
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.dev.ConsoleRenderer(),
-    ]
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 log = structlog.get_logger(__name__)
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 
 PROJECT_ROOT = Path(__file__).parent.parent
-BRONZE_DB_PATH = PROJECT_ROOT / "data" / "bronze" / "bronze.duckdb"
+BRONZE_DB_PATH = PROJECT_ROOT / "data" / "bronze" / "nyc_311.duckdb"
 
 # ─── Pipeline definition ──────────────────────────────────────────────────────
 
@@ -121,7 +130,7 @@ def run_ingestion(
 
     log.info(
         "bronze_ingestion_complete",
-        rows_loaded=sum(p.jobs["completed_jobs"] for p in load_info.load_packages),
+        rows_loaded=sum(len(p.jobs["completed_jobs"]) for p in load_info.load_packages),
         schema_name=pipeline.dataset_name,
         destination=str(BRONZE_DB_PATH),
     )
