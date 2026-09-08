@@ -3,7 +3,7 @@
 > A production-grade, end-to-end data engineering pipeline that transforms raw NYC 311 service request data into actionable urban intelligence — built entirely on modern open-source tooling.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![dlt](https://img.shields.io/badge/ingestion-dlt_0.5.x-orange.svg)](https://dlthub.com/)
+[![dlt](https://img.shields.io/badge/ingestion-dlt_1.30-orange.svg)](https://dlthub.com/)
 [![DuckDB](https://img.shields.io/badge/engine-DuckDB_1.1-yellow.svg)](https://duckdb.org/)
 [![dbt-core](https://img.shields.io/badge/transform-dbt--core_1.8-red.svg)](https://getdbt.com/)
 [![Polars](https://img.shields.io/badge/cleaning-Polars_1.x-purple.svg)](https://pola.rs/)

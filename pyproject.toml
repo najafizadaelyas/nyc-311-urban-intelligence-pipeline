@@ -2,6 +2,9 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["ingestion", "clean", "quality", "orchestration"]
+
 [project]
 name = "nyc-311-pipeline"
 version = "1.0.0"
@@ -14,40 +17,44 @@ keywords = ["data-engineering", "dlt", "duckdb", "dbt", "polars", "dagster", "ny
 
 dependencies = [
     # ─── Ingestion ────────────────────────────────────────────────────────────
-    "dlt[duckdb]==0.5.4",                   # Python-native ELT library (schema inference, incremental)
-    "requests==2.32.3",                     # HTTP client for Socrata API
-    "sodapy==2.2.0",                        # Socrata Open Data API Python client
+    "dlt[duckdb]>=1.30.0",                  # Python-native ELT library (schema inference, incremental)
+    "requests>=2.32.3",                     # HTTP client for Socrata API
+    "sodapy>=2.2.0",                        # Socrata Open Data API Python client
 
     # ─── Storage / Compute ────────────────────────────────────────────────────
-    "duckdb==1.1.3",                        # Embedded OLAP engine (all three layers)
+    # dlt[duckdb] installs duckdb automatically. We add it explicitly so our
+    # own code (clean/, quality/) can import it directly.
+    "duckdb>=0.10.0",                       # Embedded OLAP engine — let dlt pick the exact version
 
     # ─── Cleaning ─────────────────────────────────────────────────────────────
-    "polars==1.9.0",                        # Rust-powered DataFrame library (Bronze→Silver)
-    "pyarrow==17.0.0",                      # Arrow IPC bridge (Polars ↔ DuckDB)
+    "polars>=1.9.0",                        # Rust-powered DataFrame library (Bronze→Silver)
+    "pyarrow>=14.0.0",                      # Arrow IPC bridge (Polars ↔ DuckDB)
 
     # ─── Transformation ───────────────────────────────────────────────────────
-    "dbt-core==1.8.7",                      # SQL-first transformation framework
-    "dbt-duckdb==1.8.2",                    # dbt adapter for DuckDB
+    "dbt-core>=1.8.0,<2.0.0",              # SQL-first transformation framework
+    "dbt-duckdb>=1.8.0,<2.0.0",            # dbt adapter for DuckDB — tracks dbt-core minor
 
     # ─── Data Quality ─────────────────────────────────────────────────────────
-    "great-expectations==0.18.19",          # Data contract validation and profiling
+    "great-expectations>=0.18.19",          # Data contract validation and profiling
 
     # ─── Orchestration ────────────────────────────────────────────────────────
-    "dagster==1.9.3",                       # Asset-based data orchestration
-    "dagster-webserver==1.9.3",             # Dagster UI server
-    "dagster-dbt==0.25.3",                  # Dagster ↔ dbt integration
-    "dagster-duckdb==0.25.3",              # Dagster ↔ DuckDB resource
+    # dagster / dagster-webserver / dagster-dbt / dagster-duckdb must all share
+    # the same minor version. Using >= lets the resolver pick a consistent set.
+    "dagster>=1.9.0",                       # Asset-based data orchestration
+    "dagster-webserver>=1.9.0",             # Dagster UI server
+    "dagster-dbt>=0.25.0",                  # Dagster ↔ dbt integration
+    "dagster-duckdb>=0.25.0",              # Dagster ↔ DuckDB resource
 
     # ─── Environment / Config ─────────────────────────────────────────────────
-    "python-dotenv==1.0.1",                 # .env file loading
-    "pydantic==2.9.2",                      # Settings validation (Dagster config, GE config)
-    "pydantic-settings==2.5.2",            # Settings classes with env var binding
+    "python-dotenv>=1.0.1",                 # .env file loading
+    "pydantic>=2.9.0",                      # Settings validation
+    "pydantic-settings>=2.5.0",            # Settings classes with env var binding
 
     # ─── Utilities ────────────────────────────────────────────────────────────
-    "tenacity==9.0.0",                      # Retry logic for API calls
-    "rich==13.8.1",                         # Beautiful CLI output
-    "structlog==24.4.0",                    # Structured logging
-    "pendulum==3.0.0",                      # Timezone-aware datetime handling
+    "tenacity>=9.0.0",                      # Retry logic for API calls
+    "rich>=13.8.0",                         # Beautiful CLI output
+    "structlog>=24.4.0",                    # Structured logging
+    "pendulum>=3.0.0",                      # Timezone-aware datetime handling
 ]
 
 [project.optional-dependencies]
