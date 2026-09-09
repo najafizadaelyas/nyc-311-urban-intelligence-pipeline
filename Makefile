@@ -126,7 +126,7 @@ clean-data: ## Silver: Run Polars Bronze→Silver cleaning pipeline
 
 transform: ## Gold: Run dbt-core models (Silver→Gold)
 	@echo "$(BOLD)$(BLUE)🔨 Gold Transformation (dbt-core)$(RESET)"
-	cd $(DBT_DIR) && $(DBT) build --select tag:gold
+	cd $(DBT_DIR) && $(DBT) build --select +tag:gold
 	@echo "$(GREEN)✅ Gold transformation complete → $(GOLD_DB)$(RESET)"
 
 quality: ## Run Great Expectations validation for all layers
@@ -160,7 +160,7 @@ full-refresh: ## Full pipeline refresh from scratch (re-fetches all data)
 	@echo "$(BOLD)$(YELLOW)⚠️  Full refresh: this will re-process all data from 2020$(RESET)"
 	$(PYTHON) -m ingestion.pipeline --full-refresh
 	$(PYTHON) -m clean.silver_cleaner --full-refresh
-	cd $(DBT_DIR) && $(DBT) build --select tag:gold --full-refresh
+	cd $(DBT_DIR) && $(DBT) build --select +tag:gold --full-refresh
 	$(PYTHON) -m quality.runner all
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -52,7 +52,7 @@ def silver_service_requests(context: AssetExecutionContext) -> MaterializeResult
         with duckdb.connect(str(SILVER_DB), read_only=True) as con:
             try:
                 total_silver_rows = con.execute(
-                    "SELECT COUNT(*) FROM silver.service_requests"
+                    "SELECT COUNT(*) FROM service_requests"
                 ).fetchone()[0]
             except Exception:  # noqa: BLE001
                 pass

@@ -7,7 +7,7 @@ sources:
       request data produced by the Polars cleaning pipeline. Attached to the
       Gold DuckDB as a read-only source.
     database: silver_source
-    schema: silver
+    schema: main
     tables:
       - name: service_requests
         description: >

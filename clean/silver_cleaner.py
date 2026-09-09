@@ -101,17 +101,24 @@ COMPLAINT_TYPE_ALIASES: dict[str, str] = {
 }
 
 # Status normalization
+# Keys must include BOTH the original mixed-case form AND the post-_clean_strings
+# uppercase form, because _clean_strings runs before _normalize_status.
 STATUS_NORMALIZATION: dict[str, str] = {
     "Open":               "OPEN",
     "Closed":             "CLOSED",
     "Assigned":           "ASSIGNED",
     "Pending":            "PENDING",
     "In Progress":        "IN_PROGRESS",
+    "IN PROGRESS":        "IN_PROGRESS",
     "In-Progress":        "IN_PROGRESS",
+    "IN-PROGRESS":        "IN_PROGRESS",
     "Started":            "IN_PROGRESS",
+    "STARTED":            "IN_PROGRESS",
     "Draft":              "DRAFT",
     "Email Sent":         "EMAIL_SENT",
+    "EMAIL SENT":         "EMAIL_SENT",
     "More Information Requested": "MORE_INFO_REQUESTED",
+    "MORE INFORMATION REQUESTED": "MORE_INFO_REQUESTED",
 }
 
 
@@ -220,7 +227,7 @@ def _get_silver_max_created_date() -> str | None:
     try:
         with duckdb.connect(str(SILVER_DB), read_only=True) as silver_con:
             result = silver_con.execute(
-                "SELECT MAX(created_date) FROM silver.service_requests"
+                "SELECT MAX(created_date) FROM service_requests"
             ).fetchone()
             if result and result[0]:
                 return str(result[0])
@@ -248,17 +255,20 @@ def _deduplicate(df: pl.LazyFrame) -> pl.LazyFrame:
 
 def _parse_timestamps(df: pl.LazyFrame) -> pl.LazyFrame:
     """
-    Parse all date/time columns from strings to proper Polars Datetime types.
+    Ensure all date/time columns are proper Polars Datetime types.
 
-    The Socrata API returns timestamps as ISO 8601 strings.
-    Some records use "T" separator, some use space; some have timezone info.
-    Polars' strptime handles all variants with try_parse=True.
+    dlt already coerces timestamps before writing to DuckDB, so these columns
+    arrive as datetime[μs, tz] types. We only apply str.to_datetime() if a
+    column is still a String (e.g. if the schema changes upstream).
     """
     timestamp_cols = ["created_date", "closed_date", "due_date", "resolution_action_updated_date"]
+    schema = df.collect_schema()
 
     exprs = []
     for col in timestamp_cols:
-        if col in df.schema:
+        if col not in schema:
+            continue
+        if schema[col] == pl.String:
             exprs.append(
                 pl.col(col)
                 .str.to_datetime(
@@ -268,6 +278,7 @@ def _parse_timestamps(df: pl.LazyFrame) -> pl.LazyFrame:
                 )
                 .alias(col)
             )
+        # Already a datetime type (dlt-typed) — no conversion needed
 
     return df.with_columns(exprs) if exprs else df
 
@@ -279,19 +290,13 @@ def _compute_temporal_features(df: pl.LazyFrame) -> pl.LazyFrame:
       - created_year/month/day/hour/dow: date part extractions
       - is_weekend:       True if created on Saturday or Sunday
       - is_after_hours:   True if created outside 8am–6pm
-    """
-    return df.with_columns([
-        # Response time in hours (null when ticket still open)
-        pl.when(pl.col("closed_date").is_not_null() & pl.col("created_date").is_not_null())
-          .then(
-              (pl.col("closed_date") - pl.col("created_date"))
-              .dt.total_seconds()
-              .truediv(3600.0)
-          )
-          .otherwise(None)
-          .alias("response_hours"),
 
-        # Force negatives to null (data quality issue: closed_date < created_date)
+    NOTE: closed_date correction and response_hours are in separate with_columns
+    calls so that response_hours is computed from the already-corrected closed_date,
+    never producing a negative value.
+    """
+    # Step 1: Null out closed_date when it precedes created_date
+    df = df.with_columns([
         pl.when(
             pl.col("closed_date").is_not_null()
             & pl.col("created_date").is_not_null()
@@ -300,6 +305,19 @@ def _compute_temporal_features(df: pl.LazyFrame) -> pl.LazyFrame:
         .then(None)
         .otherwise(pl.col("closed_date"))
         .alias("closed_date"),
+    ])
+
+    # Step 2: Compute response_hours from the corrected closed_date, plus date parts
+    return df.with_columns([
+        # Response time in hours (null when ticket still open or closed_date was bad)
+        pl.when(pl.col("closed_date").is_not_null() & pl.col("created_date").is_not_null())
+          .then(
+              (pl.col("closed_date") - pl.col("created_date"))
+              .dt.total_seconds()
+              .truediv(3600.0)
+          )
+          .otherwise(None)
+          .alias("response_hours"),
 
         # Date part extractions
         pl.col("created_date").dt.year().alias("created_year"),
@@ -386,10 +404,10 @@ def _normalize_complaint_type(df: pl.LazyFrame) -> pl.LazyFrame:
     )
     keys = list(COMPLAINT_TYPE_ALIASES.keys())
 
-    # Use replace_strict for known aliases, keep existing for unknowns
+    # replace() keeps the original value for unmatched entries (Polars 1.x default)
     return df.with_columns(
         pl.col("complaint_type")
-          .replace(old=keys, new=list(COMPLAINT_TYPE_ALIASES.values()), default=pl.first())
+          .replace(old=keys, new=list(COMPLAINT_TYPE_ALIASES.values()))
           .alias("complaint_type")
     )
 
@@ -400,7 +418,7 @@ def _normalize_status(df: pl.LazyFrame) -> pl.LazyFrame:
     values = list(STATUS_NORMALIZATION.values())
     return df.with_columns(
         pl.col("status")
-          .replace(old=keys, new=values, default=pl.col("status"))
+          .replace(old=keys, new=values)
           .alias("status")
     )
 
@@ -460,36 +478,34 @@ def _write_silver(df: pl.DataFrame, full_refresh: bool) -> int:
     arrow_table = df.to_arrow()
 
     with duckdb.connect(str(SILVER_DB)) as silver_con:
-        silver_con.execute("CREATE SCHEMA IF NOT EXISTS silver")
-
         if full_refresh:
-            silver_con.execute("DROP TABLE IF EXISTS silver.service_requests")
+            silver_con.execute("DROP TABLE IF EXISTS service_requests")
 
         # Register the Arrow table as a DuckDB view, then INSERT into Silver
         silver_con.register("cleaned_batch", arrow_table)
         silver_con.execute("""
-            CREATE TABLE IF NOT EXISTS silver.service_requests AS
+            CREATE TABLE IF NOT EXISTS service_requests AS
                 SELECT * FROM cleaned_batch WHERE 1=0
         """)
 
         if full_refresh:
             silver_con.execute(
-                "INSERT INTO silver.service_requests SELECT * FROM cleaned_batch"
+                "INSERT INTO service_requests SELECT * FROM cleaned_batch"
             )
         else:
             # Upsert: update if unique_key already exists, insert if new
             silver_con.execute("""
-                DELETE FROM silver.service_requests
+                DELETE FROM service_requests
                 WHERE unique_key IN (SELECT unique_key FROM cleaned_batch)
             """)
             silver_con.execute(
-                "INSERT INTO silver.service_requests SELECT * FROM cleaned_batch"
+                "INSERT INTO service_requests SELECT * FROM cleaned_batch"
             )
 
         silver_con.unregister("cleaned_batch")
 
         count = silver_con.execute(
-            "SELECT COUNT(*) FROM silver.service_requests"
+            "SELECT COUNT(*) FROM service_requests"
         ).fetchone()[0]
 
     return count
@@ -511,7 +527,7 @@ def main() -> None:
 
     try:
         stats = run_cleaning(full_refresh=args.full_refresh)
-        print(f"\n✅ Silver cleaning complete:")
+        print(f"\nSilver cleaning complete:")
         print(f"   Input rows:        {stats['input']:,}")
         print(f"   After dedup:       {stats['deduplicated']:,}")
         print(f"   Written to Silver: {stats['written']:,}")

@@ -33,8 +33,8 @@ enriched AS (
         {{ dbt_utils.generate_surrogate_key(['complaint_type']) }} AS complaint_type_key,
         complaint_type,
 
-        -- Human-readable display name (title case)
-        INITCAP(LOWER(complaint_type)) AS complaint_type_display,
+        -- Human-readable display name (lowercase — DuckDB 1.5.5 lacks INITCAP)
+        LOWER(complaint_type) AS complaint_type_display,
 
         -- ── Complaint super-categories ────────────────────────────────────
         CASE
@@ -72,9 +72,7 @@ enriched AS (
 
         -- Flag high-volume types (in top 10%)
         CASE
-            WHEN total_requests > PERCENTILE_CONT(0.9)
-                WITHIN GROUP (ORDER BY total_requests)
-                OVER ()
+            WHEN total_requests > QUANTILE_CONT(total_requests, 0.9) OVER ()
             THEN TRUE ELSE FALSE
         END AS is_high_volume_type
 

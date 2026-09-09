@@ -39,7 +39,7 @@ log = structlog.get_logger(__name__)
 PROJECT_ROOT = Path(__file__).parent.parent
 GE_ROOT = PROJECT_ROOT / "quality"
 
-BRONZE_DB = PROJECT_ROOT / "data" / "bronze" / "bronze.duckdb"
+BRONZE_DB = PROJECT_ROOT / "data" / "bronze" / "nyc_311.duckdb"
 SILVER_DB = PROJECT_ROOT / "data" / "silver" / "silver.duckdb"
 GOLD_DB   = PROJECT_ROOT / "data" / "gold"   / "gold.duckdb"
 
@@ -77,7 +77,7 @@ def run_silver_validation() -> bool:
     log.info("running_silver_validation")
     return _run_checkpoint(
         db_path=SILVER_DB,
-        schema="silver",
+        schema="main",
         table="service_requests",
         suite_name="silver_service_requests",
     )
